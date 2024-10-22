@@ -1,0 +1,281 @@
+---
+title: "Untitled"
+author: "帖达玉"
+date: '2024-10-21'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+strawberry_chemical=read.csv('strawberry_chemical.csv')
+data=strawberry_chemical
+library(dplyr)
+
+data <- data %>%
+  mutate(MEASURED = ifelse(grepl("MEASURED IN", information),
+                           sub(".*MEASURED IN\\s+(.+)", "\\1", information),
+                           NA)) %>%
+  filter(Name != "TOTAL") %>%
+  filter(!Value %in% c("(NA)", "(D)", "(z)")) 
+
+
+
+
+
+```
+
+```{r}
+unique(strawberry_chemical$State)
+```
+
+```{r}
+
+
+library(ggplot2)
+
+custom_colors <- c("red", "blue", "green", "purple", "orange", "yellow", "pink")
+
+ggplot(strawberry_chemical, aes(x = Category, fill = Category)) +
+  geom_bar() +
+  theme_minimal() +  
+  theme(
+    panel.background = element_rect(fill = "transparent", color = NA),  
+    plot.background = element_rect(fill = "transparent", color = NA),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  labs(title = "Distribution of Chemical Categories", x = "Category", y = "Count") +
+  scale_fill_manual(values = custom_colors)  
+
+
+```
+
+
+```{r}
+unique(data$MEASURED)
+```
+
+
+```{r}
+data_1 <- data %>%
+  filter(MEASURED == 'LB')
+data_2 <- data %>%
+  filter(MEASURED == "LB / ACRE / APPLICATION, AVG")
+data_3 <- data %>%
+  filter(MEASURED == "LB / ACRE / YEAR, AVG")
+data_4 <- data %>%
+  filter(MEASURED == "NUMBER, AVG")
+data_5 <- data %>%
+  filter(MEASURED == "PCT OF AREA BEARING, AVG")
+```
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(scales)
+
+
+plot_total_value_by_state <- function(data, state_name, title_suffix) {
+
+  data_clean <- data %>%
+    mutate(Value = as.numeric(gsub(",", "", Value))) %>%
+    filter(!is.na(Value)) %>%
+    filter(State == state_name)
+  
+
+  ggplot(data_clean, aes(x = Category, y = Value)) +
+    geom_bar(stat = "identity", fill = "skyblue") +
+    theme_minimal() +
+    labs(title = paste("Total Value by Category -", title_suffix),
+         x = "Category",
+         y = "Total Value") +
+    scale_y_continuous(labels = comma) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+
+
+data_list <- list(data_1 = data_1, data_2 = data_2, data_3 = data_3, data_4 = data_4, data_5 = data_5)
+
+
+states <- c('CALIFORNIA', 'FLORIDA')
+
+
+for (i in 1:length(data_list)) {
+  data_name <- names(data_list)[i]
+  data <- data_list[[i]]
+  
+  for (state in states) {
+    plot_title <- paste(state, "(", data_name, ")")
+    print(plot_total_value_by_state(data, state, plot_title))
+  }
+}
+data=strawberry_chemical
+data <- data %>%
+  mutate(MEASURED = ifelse(grepl("MEASURED IN", information),
+                           sub(".*MEASURED IN\\s+(.+)", "\\1", information),
+                           NA)) %>%
+  filter(Name != "TOTAL") %>%
+  filter(!Value %in% c("(NA)", "(D)", "(z)")) 
+```
+```{r}
+unique(data$Category)
+unique(data$State)
+```
+
+
+```{r}
+years_to_loop <- c(2023, 2021, 2019, 2018)
+
+for (year in years_to_loop) {
+  
+ 
+  data_1_clean_CA <- data_1 %>%
+    mutate(Value = as.numeric(gsub(",", "", Value))) %>%
+    filter(!is.na(Value)) %>%
+    filter(State == 'CALIFORNIA') %>%
+    filter(Category == "FERTILIZER") %>%
+    filter(Year == year) %>%
+    arrange(desc(Value)) %>%
+    select(Name, Value)
+  
+  cat("Results for Year:", year, "\n")
+  print(head(data_1_clean_CA, 3))
+  cat("\n")  
+}
+
+```
+```{r}
+##install.packages('PubChemR')
+library(tidyverse)
+library(PubChemR)
+```
+
+```{r}
+GHS_searcher<-function(result_json_object){
+  result<-result_json_object
+  for (i in 1:length(result[["result"]][["Hierarchies"]][["Hierarchy"]])){
+    if(result[["result"]][["Hierarchies"]][["Hierarchy"]][[i]][["SourceName"]]=="GHS Classification (UNECE)"){
+      return(i)
+    }
+          
+  }
+}
+```
+
+```{r}
+hazards_retriever<-function(index,result_json_object){
+  result<-result_json_object
+  hierarchy<-result[["result"]][["Hierarchies"]][["Hierarchy"]][[index]]
+  i<-1
+  output_list<-rep(NA,length(hierarchy[["Node"]]))
+  while(str_detect(hierarchy[["Node"]][[i]][["Information"]][["Name"]],"H") & i<length(hierarchy[["Node"]])){
+    output_list[i]<-hierarchy[["Node"]][[i]][["Information"]][["Name"]]
+    i<-i+1
+  }
+  return(output_list[!is.na(output_list)])
+}
+```
+
+```{r}
+result_f<-get_pug_rest(identifier = "NITROGEN", namespace = "name", domain = "compound",operation="classification", output = "JSON")
+
+hazards_retriever(GHS_searcher(result_f),result_f)
+
+```
+
+
+```{r}
+years_to_loop <- c(2023, 2021, 2019, 2018)
+
+for (year in years_to_loop) {
+  
+ 
+  data_1_clean_FL <- data_1 %>%
+    mutate(Value = as.numeric(gsub(",", "", Value))) %>%
+    filter(!is.na(Value)) %>%
+    filter(State == 'FLORIDA') %>%
+    filter(Category == "FERTILIZER") %>%
+    filter(Year == year) %>%
+    arrange(desc(Value)) %>%
+    select(Name, Value)
+  
+  cat("Results for Year:", year, "\n")
+  print(head(data_1_clean_FL, 3))
+  cat("\n")  
+}
+```
+
+##Potassium is the third major plant and crop nutrient after nitrogen and phosphorus. It has been used since antiquity as a soil fertilizer (about 90% of current use).Fertilizer use is the main driver behind potash consumption, especially for its use in fertilizing crops that contribute to high-protein diets. As of at least 2010, more than 95% of potash is mined for use in agricultural purposes.
+
+
+```{r}
+years_to_loop <- c(2023, 2021, 2019, 2018)
+
+for (year in years_to_loop) {
+  
+ 
+  data_1_clean_CA <- data_2%>%
+    mutate(Value = as.numeric(gsub(",", "", Value))) %>%
+    filter(!is.na(Value)) %>%
+    filter(State == 'CALIFORNIA') %>%
+    filter(Category == "OTHER") %>%
+    filter(Year == year) %>%
+    arrange(desc(Value)) %>%
+    select(Name, Value)
+  
+  cat("Results for Year:", year, "\n")
+  print(head(data_1_clean_FL, 3))
+  cat("\n")  
+}
+```
+
+
+```{r}
+years_to_loop <- c(2023, 2021, 2019, 2018)
+
+for (year in years_to_loop) {
+  
+ 
+  data_2_clean_FL <- data_2 %>%
+    mutate(Value = as.numeric(gsub(",", "", Value))) %>%
+    filter(!is.na(Value)) %>%
+    filter(State == 'FLORIDA') %>%
+    filter(Category == "FERTILIZER") %>%
+    filter(Year == year) %>%
+    arrange(desc(Value)) %>%
+    select(Name, Value)
+  
+  cat("Results for Year:", year, "\n")
+  print(head(data_2_clean_FL, 3))
+  cat("\n")  
+}
+```
+
+```{R}
+years_to_loop <- c(2023, 2021, 2019, 2018)
+
+for (year in years_to_loop) {
+  
+ 
+  data_3_clean_CA <- data_3%>%
+    mutate(Value = as.numeric(gsub(",", "", Value))) %>%
+    filter(!is.na(Value)) %>%
+    filter(State == 'CALIFORNIA') %>%
+    filter(Category == "FERTILIZER") %>%
+    filter(Year == year) %>%
+    arrange(desc(Value)) %>%
+    select(Name, Value)
+  
+  cat("Results for Year:", year, "\n")
+  print(head(data_3_clean_CA, 3))
+  cat("\n")  
+}
+```
+
+
+##Balancing Potash Mining and Sustainable Development Goals
+##Potash mining is an essential industry that supports agricultural production worldwide. However, the extraction of potash ore can also have significant environmental impacts, highlighting the need for sustainable development practices.Potash mining projects must balance economic growth with environmental protection to ensure that future generations can continue to benefit from this finite resource.The extraction of tons of ore can have a specific activity that needs to be monitored over time to ensure compliance with environmental regulations.Therefore, it is crucial to implement monitoring programs that collect and analyze data on the total activity levels of the mine and its impact on the environment.
+
+
+
